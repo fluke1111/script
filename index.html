@@ -652,6 +652,34 @@ footer span {
   opacity: 0;
   transform: translateY(30px);
 }
+
+/* ── TRICK MESSAGE & ANIMATION (NEW) ── */
+#trick-msg {
+  display: none;
+  background: rgba(255, 45, 45, 0.1);
+  border: 1px solid rgba(255, 45, 45, 0.4);
+  color: #ff6b6b;
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  backdrop-filter: blur(5px);
+}
+
+@keyframes shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-10px); }
+  40% { transform: translateX(10px); }
+  60% { transform: translateX(-10px); }
+  80% { transform: translateX(10px); }
+  100% { transform: translateX(0); }
+}
+.shake-animation {
+  animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
 </style>
 </head>
 <body>
@@ -683,7 +711,7 @@ footer span {
 
   <div class="unlock-card fade-up" id="unlock-card">
 
-    <!-- Banner Image (Updated to the new image you provided) -->
+    <!-- Banner Image -->
     <img class="banner-img"
          id="bannerImg"
          src="delta.png"
@@ -712,6 +740,13 @@ footer span {
 
     <div class="unlock-title">🥷 رابط السكربت</div>
     <div class="unlock-sub">أكمل جميع الإجراءات لفتح رابط التحميل</div>
+
+    <!-- رسالة التحقق (مخفية بالبداية - جديدة) -->
+    <div id="trick-msg">
+      ⚠️ تم التحقق من قبل النظام: <br>
+      اكتشفنا أنك لم تقم بوضع اللايك والاشتراك بشكل فعلي! <br>
+      إذا كنت قد وضعتها، قم بإلغائها ثم أعد وضعها لتأكيد العملية.
+    </div>
 
     <!-- Task Buttons -->
     <button id="task0" onclick="startTask(0)" class="task-btn red">
@@ -749,16 +784,13 @@ footer span {
       </div>
     </div>
 
-    <!-- Unlock Button -->
-    <button class="unlock-btn" id="unlockBtn"
-            onclick="window.open(CONFIG.finalUrl,'_blank')">
+    <!-- Unlock Button (معدل للعمل مع دالة المقلب) -->
+    <button class="unlock-btn" id="unlockBtn" onclick="finalUnlock()">
       🔓رابط السكربت — !
     </button>
 
   </div>
 </section>
-
-
 
 <!-- FOOTER -->
 <footer>
@@ -769,8 +801,6 @@ footer span {
 <script>
 /* ── CONFIG ── */
 const CONFIG = {
-  // ضع هنا اسم ملف الصورة إذا رفعتها على GitHub بجانب index.html (مثل "delta.png")
-  // أو ضع رابط صورة كامل من الإنترنت (مثل "https://i.imgur.com/xxxx.jpg")
   bannerImage:   "file_00000000233071f4805cfa4325cb0dd5.png",
   channelUrl:    "https://youtube.com/@fluke.1?si=v8zD-vqLNxheiXiu",
   likeVideoUrl:  "https://youtu.be/33XlHXpZ0Mo?si=TH182f9IGl3rSt_o",
@@ -781,8 +811,8 @@ const CONFIG = {
 
 const tasks = [CONFIG.channelUrl, CONFIG.likeVideoUrl, CONFIG.commentVideoUrl, CONFIG.telegramUrl];
 const done  = [false, false, false, false];
+let trickActivated = false; // المتغير الجديد لعمل المقلب لمرة واحدة
 
-/* ── تحديث صورة البانر من CONFIG.bannerImage ── */
 if (CONFIG.bannerImage) {
   document.getElementById('bannerImg').src = CONFIG.bannerImage;
 }
@@ -848,7 +878,6 @@ function drawCanvas() {
     ctx.fillStyle = `rgba(${p.c},${p.o})`;
     ctx.fill();
   });
-  // Connection lines
   for (let i = 0; i < particles.length; i++) {
     for (let j = i + 1; j < particles.length; j++) {
       const dx = particles[i].x - particles[j].x;
@@ -922,34 +951,41 @@ function startTask(index) {
     btn.classList.add('done-state');
     btn.querySelector('.task-icon').textContent = '✅';
     btn.querySelector('.task-label').textContent = 'تم بنجاح!';
-    // Update step indicator
+    
     const snum = document.getElementById('snum' + index);
     if (snum) {
       snum.classList.remove('active');
       snum.classList.add('complete');
       snum.textContent = '✓';
     }
-    // Activate next step
+    
+    // تعديل ذكي لضمان عدم تفعيل زر مهمة منتهية مسبقاً (مهم جداً للمقلب)
     const next = document.getElementById('snum' + (index + 1));
-    if (next) next.classList.add('active');
-    // Enable next task button
+    if (next && !done[index + 1]) next.classList.add('active');
+    
     const nextBtn = document.getElementById('task' + (index + 1));
-    if (nextBtn) nextBtn.disabled = false;
+    if (nextBtn && !done[index + 1]) nextBtn.disabled = false;
+    
     updateProgress();
   }, 12000);
 }
 
+/* ── PROGRESS ── */
 function updateProgress() {
   const completed = done.filter(x => x).length;
   document.getElementById('progressText').textContent = completed + ' / 4 مهام';
   document.getElementById('bar').style.width = (completed / 4 * 100) + '%';
+  
+  const btn = document.getElementById('unlockBtn');
   if (completed === 4) {
-    const btn = document.getElementById('unlockBtn');
     btn.classList.add('show');
     launchConfetti();
     if (typeof gsap !== 'undefined') {
       gsap.from('#unlockBtn', { scale:0.8, opacity:0, duration:0.6, ease:'back.out(2)' });
     }
+  } else {
+    // إخفاء الزر في حال رجوع التقدم بسبب المقلب
+    btn.classList.remove('show');
   }
 }
 
@@ -971,6 +1007,60 @@ function launchConfetti() {
       document.body.appendChild(p);
       setTimeout(() => p.remove(), 4000);
     }, i * 30);
+  }
+}
+
+/* ── TRICK LOGIC (نظام المقلب الجديد) ── */
+function finalUnlock() {
+  if (!trickActivated) {
+    // تفعيل المقلب للمرة الأولى
+    trickActivated = true;
+
+    // إظهار رسالة الخطأ
+    const msgEl = document.getElementById('trick-msg');
+    msgEl.style.display = 'block';
+
+    // إضافة تأثير الاهتزاز للبطاقة كاملة
+    const card = document.getElementById('unlock-card');
+    card.classList.add('shake-animation');
+    setTimeout(() => {
+      card.classList.remove('shake-animation');
+    }, 500);
+
+    // تصفير مهمة الاشتراك (0) ومهمة الإعجاب (1)
+    done[0] = false;
+    done[1] = false;
+
+    // إعادة ضبط شكل الأزرار
+    resetTaskBtnForTrick(0, '▶', 'اشترك في القناة (تأكيد)', false); // نفتحه
+    resetTaskBtnForTrick(1, '👍', 'أعجب بالفيديو (تأكيد)', true);  // نقفله لحد ما يكمل 0
+
+    // تحديث شريط التقدم (راح يخفي زر التحميل تلقائياً)
+    updateProgress();
+    
+    // رفع الشاشة للأعلى قليلاً ليرى المستخدم الرسالة
+    document.getElementById('unlock-section').scrollIntoView({ behavior: 'smooth' });
+
+  } else {
+    // في حال كمل المهام المرة الثانية وضغط الزر.. يفتح الرابط الحقيقي
+    window.open(CONFIG.finalUrl, '_blank');
+  }
+}
+
+function resetTaskBtnForTrick(index, icon, text, isDisabled) {
+  const btn = document.getElementById('task' + index);
+  btn.disabled = isDisabled;
+  btn.className = 'task-btn red'; // نرجعه أحمر
+  btn.querySelector('.task-icon').textContent = icon;
+  btn.querySelector('.task-label').textContent = text;
+  btn.querySelector('.task-arrow').textContent = '←';
+
+  // إعادة ضبط أرقام الخطوات العلوية
+  const snum = document.getElementById('snum' + index);
+  if (snum) {
+    snum.className = 'step-num'; // إزالة اللون الأخضر
+    if (index === 0) snum.classList.add('active'); // تفعيل الدائرة الأولى
+    snum.textContent = (index + 1); // إرجاع الرقم
   }
 }
 
