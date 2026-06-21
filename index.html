@@ -32,6 +32,9 @@ body {
   color: #fff;
   overflow-x: hidden;
   cursor: none;
+  /* منع التحديد */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* ── CURSOR ── */
@@ -433,7 +436,7 @@ body {
   cursor: default;
 }
 
-.task-btn:disabled { cursor: default; }
+.task-btn:disabled { cursor: default; opacity: 0.6; }
 
 .task-icon {
   width: 42px; height: 42px;
@@ -652,19 +655,66 @@ footer span {
   opacity: 0;
   transform: translateY(30px);
 }
+
+/* ── TOAST NOTIFICATIONS ── */
+#toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.toast-msg {
+  min-width: 280px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transform: translateX(120%);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+.toast-msg.show {
+  transform: translateX(0);
+  opacity: 1;
+}
+.toast-error {
+  background: linear-gradient(135deg, #FF2D2D, #cc1a1a);
+  border: 1px solid #ff6b6b;
+}
+.toast-warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: 1px solid #fbbf24;
+}
+.toast-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: 1px solid #34d399;
+}
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 
-<!-- CURSOR -->
 <div id="cursor-glow"></div>
 <div id="cursor"></div>
 <div id="cursor-dot"></div>
 
-<!-- CANVAS BG -->
 <canvas id="bg-canvas"></canvas>
 
-<!-- ════════════════════ LOADER ════════════════════ -->
+<div id="toast-container"></div>
+
 <div id="loader">
   <div class="loader-logo">🥷 DELTA</div>
   <div class="loader-bar-wrap">
@@ -673,7 +723,6 @@ footer span {
   <div class="loader-pct" id="loader-pct">0%</div>
 </div>
 
-<!-- ════════════════════ UNLOCK SECTION ════════════════════ -->
 <section id="unlock-section">
   <div class="section-label">خطوات الحصول على الرابط</div>
   <h2 class="section-title">
@@ -683,14 +732,12 @@ footer span {
 
   <div class="unlock-card fade-up" id="unlock-card">
 
-    <!-- Banner Image (Updated to the new image you provided) -->
     <img class="banner-img"
          id="bannerImg"
          src="delta.png"
          onerror="this.src='https://images.unsplash.com/photo-1614294148960-9aa740632a87?w=900'"
          alt="Delta Executor APK">
 
-    <!-- Steps indicator -->
     <div class="steps-row" id="steps-row">
       <div class="step-item">
         <div class="step-num active" id="snum0">1</div>
@@ -713,32 +760,30 @@ footer span {
     <div class="unlock-title">🥷 رابط السكربت</div>
     <div class="unlock-sub">أكمل جميع الإجراءات لفتح رابط التحميل</div>
 
-    <!-- Task Buttons -->
-    <button id="task0" onclick="startTask(0)" class="task-btn red">
+    <button id="task0" onclick="initiateTask(0)" class="task-btn red">
       <div class="task-icon">▶</div>
       <div class="task-label">اشترك في القناة</div>
       <div class="task-arrow">←</div>
     </button>
 
-    <button id="task1" onclick="startTask(1)" class="task-btn red" disabled>
+    <button id="task1" onclick="initiateTask(1)" class="task-btn red" disabled>
       <div class="task-icon">👍</div>
       <div class="task-label">أعجب بالفيديو</div>
       <div class="task-arrow">←</div>
     </button>
 
-    <button id="task2" onclick="startTask(2)" class="task-btn red" disabled>
+    <button id="task2" onclick="initiateTask(2)" class="task-btn red" disabled>
       <div class="task-icon">💬</div>
       <div class="task-label">علّق على الفيديو</div>
       <div class="task-arrow">←</div>
     </button>
 
-    <button id="task3" onclick="startTask(3)" class="task-btn blue" disabled>
+    <button id="task3" onclick="initiateTask(3)" class="task-btn blue" disabled>
       <div class="task-icon">✈️</div>
       <div class="task-label">انضم إلى تيليجرام</div>
       <div class="task-arrow">←</div>
     </button>
 
-    <!-- Progress -->
     <div class="progress-wrap">
       <div class="progress-header">
         <span class="progress-label">التقدم الكلي</span>
@@ -749,7 +794,6 @@ footer span {
       </div>
     </div>
 
-    <!-- Unlock Button -->
     <button class="unlock-btn" id="unlockBtn"
             onclick="window.open(CONFIG.finalUrl,'_blank')">
       🔓رابط السكربت — !
@@ -758,19 +802,25 @@ footer span {
   </div>
 </section>
 
-
-
-<!-- FOOTER -->
 <footer>
   <p>صُنع بـ ❤️ بواسطة <span>@fluke.1</span> · جميع الحقوق محفوظة 2025</p>
 </footer>
 
-<!-- ════════════════════ SCRIPTS ════════════════════ -->
 <script>
+/* ── ANTI-INSPECT & CHEAT PREVENTION ── */
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  if (
+    e.key === 'F12' ||
+    (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) ||
+    (e.ctrlKey && e.key.toUpperCase() === 'U')
+  ) {
+    e.preventDefault();
+  }
+});
+
 /* ── CONFIG ── */
 const CONFIG = {
-  // ضع هنا اسم ملف الصورة إذا رفعتها على GitHub بجانب index.html (مثل "delta.png")
-  // أو ضع رابط صورة كامل من الإنترنت (مثل "https://i.imgur.com/xxxx.jpg")
   bannerImage:   "file_00000000233071f4805cfa4325cb0dd5.png",
   channelUrl:    "https://youtube.com/@fluke.1?si=v8zD-vqLNxheiXiu",
   likeVideoUrl:  "https://youtu.be/33XlHXpZ0Mo?si=TH182f9IGl3rSt_o",
@@ -779,18 +829,221 @@ const CONFIG = {
   finalUrl:      "https://xdabo.com/scriptkeybord"
 };
 
-const tasks = [CONFIG.channelUrl, CONFIG.likeVideoUrl, CONFIG.commentVideoUrl, CONFIG.telegramUrl];
-const done  = [false, false, false, false];
+const tasksUrl = [CONFIG.channelUrl, CONFIG.likeVideoUrl, CONFIG.commentVideoUrl, CONFIG.telegramUrl];
+const originalLabels = ["اشترك في القناة", "أعجب بالفيديو", "علّق على الفيديو", "انضم إلى تيليجرام"];
+const originalIcons = ["▶", "👍", "💬", "✈️"];
+const taskTimeReqs = [12000, 12000, 12000, 12000]; // تعديل الوقت إلى 12 ثانية لجميع المهام
 
-/* ── تحديث صورة البانر من CONFIG.bannerImage ── */
-if (CONFIG.bannerImage) {
-  document.getElementById('bannerImg').src = CONFIG.bannerImage;
+// State Variables
+let tasksDone = [false, false, false, false];
+let activeTaskIndex = -1;
+let leaveTime = 0;
+let isProcessing = false;
+
+/* ── TOAST NOTIFICATIONS ── */
+function showToast(msg, type = 'error') {
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast-msg toast-${type}`;
+  
+  let icon = '❌';
+  if (type === 'warning') icon = '⚠️';
+  if (type === 'success') icon = '✅';
+
+  toast.innerHTML = `<span>${icon}</span> <span>${msg}</span>`;
+  container.appendChild(toast);
+  
+  // Trigger animation
+  setTimeout(() => toast.classList.add('show'), 10);
+  
+  // Remove after 4s
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
 }
 
-/* ── CURSOR ── */
-const cursor    = document.getElementById('cursor');
+/* ── LOCAL STORAGE MANAGEMENT ── */
+function saveProgress() {
+  localStorage.setItem('deltaScriptState', JSON.stringify({
+    done: tasksDone,
+    timestamp: Date.now()
+  }));
+}
+
+function loadProgress() {
+  const saved = localStorage.getItem('deltaScriptState');
+  if (saved) {
+    const data = JSON.parse(saved);
+    if (Date.now() - data.timestamp < 3600000) {
+      tasksDone = data.done;
+      restoreUI();
+    } else {
+      localStorage.removeItem('deltaScriptState');
+    }
+  }
+}
+
+function restoreUI() {
+  let anyDone = false;
+  for (let i = 0; i < tasksDone.length; i++) {
+    if (tasksDone[i]) {
+      anyDone = true;
+      markTaskAsDoneUI(i);
+      if (i + 1 < tasksDone.length) {
+        document.getElementById('task' + (i + 1)).disabled = false;
+      }
+    }
+  }
+  if (anyDone) updateProgress();
+}
+
+/* ── STRICT VERIFICATION LOGIC ── */
+
+// مراقبة مغادرة الصفحة واحتساب الوقت المختفي فيه المستخدم
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (activeTaskIndex !== -1 && !isProcessing) {
+      leaveTime = Date.now();
+    }
+  } else {
+    if (activeTaskIndex !== -1 && !isProcessing) {
+      if (leaveTime > 0) {
+        const timeSpent = Date.now() - leaveTime;
+        leaveTime = 0;
+        processTaskReturn(activeTaskIndex, timeSpent);
+      }
+    }
+  }
+});
+
+const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+function initiateTask(index) {
+  if (tasksDone[index] || isProcessing) return;
+  
+  const btn = document.getElementById('task' + index);
+  activeTaskIndex = index;
+  leaveTime = 0;
+  
+  window.open(tasksUrl[index], '_blank');
+  btn.querySelector('.task-label').textContent = 'في انتظار إكمال المهمة...';
+  
+  setTimeout(() => {
+    if (activeTaskIndex === index && leaveTime === 0 && !document.hidden) {
+      showToast('الرجاء الضغط على الزر والذهاب لتنفيذ المهمة فعلياً!', 'error');
+      resetButtonUI(index);
+      activeTaskIndex = -1;
+    }
+  }, 1500);
+}
+
+async function processTaskReturn(index, timeSpent) {
+  isProcessing = true;
+  const btn = document.getElementById('task' + index);
+  const requiredTime = taskTimeReqs[index];
+
+  // إذا رجع خلال 3 ثواني أو أقل
+  if (timeSpent <= 3000) {
+    showToast('انت ما اشتركت ارجع اشترك', 'error');
+    resetButtonUI(index);
+    isProcessing = false;
+    activeTaskIndex = -1;
+    return;
+  }
+
+  // إذا رجع بعد الـ 3 ثواني ولكن قبل اكتمال الـ 12 ثانية
+  if (timeSpent < requiredTime) {
+    showToast('فشل التحقق: يرجى الانتظار وقت كافٍ لتنفيذ المهمة (12 ثانية)!', 'error');
+    resetButtonUI(index);
+    isProcessing = false;
+    activeTaskIndex = -1;
+    return;
+  }
+
+  // إذا نجح في الانتظار 12 ثانية فما فوق -> يتم الفحص الوهمي لتأكيد المهمة
+  const label = btn.querySelector('.task-label');
+  const icon = btn.querySelector('.task-icon');
+  
+  icon.innerHTML = `<svg class="spin-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
+  
+  label.textContent = 'جاري الاتصال بـ API...';
+  await sleep(1500);
+  
+  label.textContent = 'جاري فحص حالة الحساب...';
+  await sleep(1500);
+  
+  label.textContent = 'جاري تأكيد البيانات...';
+  await sleep(1000);
+
+  // تم بنجاح
+  tasksDone[index] = true;
+  saveProgress();
+  markTaskAsDoneUI(index);
+  
+  showToast('تم التحقق بنجاح!', 'success');
+  
+  const nextBtn = document.getElementById('task' + (index + 1));
+  if (nextBtn) nextBtn.disabled = false;
+  
+  updateProgress();
+  isProcessing = false;
+  activeTaskIndex = -1;
+}
+
+function resetButtonUI(index) {
+  const btn = document.getElementById('task' + index);
+  btn.querySelector('.task-label').textContent = originalLabels[index];
+  btn.querySelector('.task-icon').innerHTML = originalIcons[index];
+}
+
+function markTaskAsDoneUI(index) {
+  const btn = document.getElementById('task' + index);
+  btn.classList.remove('red', 'blue');
+  btn.classList.add('done-state');
+  btn.disabled = true;
+  btn.querySelector('.task-icon').textContent = '✅';
+  btn.querySelector('.task-label').textContent = 'تم بنجاح!';
+  btn.querySelector('.task-arrow').textContent = '';
+
+  const snum = document.getElementById('snum' + index);
+  if (snum) {
+    snum.classList.remove('active');
+    snum.classList.add('complete');
+    snum.textContent = '✓';
+  }
+  
+  const nextSnum = document.getElementById('snum' + (index + 1));
+  if (nextSnum) nextSnum.classList.add('active');
+}
+
+function updateProgress() {
+  const completed = tasksDone.filter(x => x).length;
+  document.getElementById('progressText').textContent = completed + ' / 4 مهام';
+  document.getElementById('bar').style.width = (completed / 4 * 100) + '%';
+  
+  if (completed === 4) {
+    const btn = document.getElementById('unlockBtn');
+    btn.classList.add('show');
+    launchConfetti();
+    if (typeof gsap !== 'undefined') {
+      gsap.from('#unlockBtn', { scale:0.8, opacity:0, duration:0.6, ease:'back.out(2)' });
+    }
+  }
+}
+
+/* ── DOM LOAD INIT ── */
+document.addEventListener('DOMContentLoaded', () => {
+  if (CONFIG.bannerImage) {
+    document.getElementById('bannerImg').src = CONFIG.bannerImage;
+  }
+  loadProgress();
+});
+
+/* ── CURSOR AND CANVAS LOGIC ── */
+const cursor = document.getElementById('cursor');
 const cursorDot = document.getElementById('cursor-dot');
-const cursorGlow= document.getElementById('cursor-glow');
+const cursorGlow = document.getElementById('cursor-glow');
 let mx=0, my=0, cx=0, cy=0;
 
 document.addEventListener('mousemove', e => {
@@ -813,9 +1066,8 @@ document.querySelectorAll('button, a').forEach(el => {
   el.addEventListener('mouseleave', () => cursor.style.transform = 'scale(1)');
 });
 
-/* ── CANVAS PARTICLES ── */
 const canvas = document.getElementById('bg-canvas');
-const ctx    = canvas.getContext('2d');
+const ctx = canvas.getContext('2d');
 let W, H, particles = [];
 
 function resize() {
@@ -848,7 +1100,6 @@ function drawCanvas() {
     ctx.fillStyle = `rgba(${p.c},${p.o})`;
     ctx.fill();
   });
-  // Connection lines
   for (let i = 0; i < particles.length; i++) {
     for (let j = i + 1; j < particles.length; j++) {
       const dx = particles[i].x - particles[j].x;
@@ -868,7 +1119,7 @@ function drawCanvas() {
 }
 drawCanvas();
 
-/* ── LOADER ── */
+/* ── LOADER AND INTRO ── */
 const loaderEl  = document.getElementById('loader');
 const loaderBar = document.getElementById('loader-bar');
 const loaderPct = document.getElementById('loader-pct');
@@ -891,69 +1142,15 @@ const loaderInt = setInterval(() => {
   loaderPct.textContent = Math.floor(pct) + '%';
 }, 60);
 
-/* ── INTRO GSAP ── */
 function introAnimate() {
   if (typeof gsap === 'undefined') return;
   gsap.registerPlugin(ScrollTrigger);
-  gsap.from('#hero-badge',   { opacity:0, y:20, duration:0.6, delay:0.1 });
-  gsap.from('#hero-title',   { opacity:0, y:40, duration:0.8, delay:0.3, ease:'power3.out' });
-  gsap.from('#hero-sub',     { opacity:0, y:30, duration:0.7, delay:0.55 });
-  gsap.from('#hero-cta',     { opacity:0, y:25, duration:0.7, delay:0.75 });
-  gsap.from('#stats-row .stat-card', {
-    opacity:0, y:30, stagger:0.12, duration:0.7, delay:1, ease:'back.out(1.2)'
-  });
   gsap.to('#unlock-card', {
     scrollTrigger: { trigger:'#unlock-card', start:'top 80%' },
     opacity:1, y:0, duration:0.8, ease:'power3.out'
   });
 }
 
-/* ── TASKS ── */
-function startTask(index) {
-  if (done[index]) return;
-  const btn = document.getElementById('task' + index);
-  window.open(tasks[index], '_blank');
-  btn.disabled = true;
-  btn.querySelector('.task-label').textContent = '⏳ جاري التحقق...';
-  btn.querySelector('.task-arrow').textContent = '';
-  setTimeout(() => {
-    done[index] = true;
-    btn.classList.remove('red','blue');
-    btn.classList.add('done-state');
-    btn.querySelector('.task-icon').textContent = '✅';
-    btn.querySelector('.task-label').textContent = 'تم بنجاح!';
-    // Update step indicator
-    const snum = document.getElementById('snum' + index);
-    if (snum) {
-      snum.classList.remove('active');
-      snum.classList.add('complete');
-      snum.textContent = '✓';
-    }
-    // Activate next step
-    const next = document.getElementById('snum' + (index + 1));
-    if (next) next.classList.add('active');
-    // Enable next task button
-    const nextBtn = document.getElementById('task' + (index + 1));
-    if (nextBtn) nextBtn.disabled = false;
-    updateProgress();
-  }, 12000);
-}
-
-function updateProgress() {
-  const completed = done.filter(x => x).length;
-  document.getElementById('progressText').textContent = completed + ' / 4 مهام';
-  document.getElementById('bar').style.width = (completed / 4 * 100) + '%';
-  if (completed === 4) {
-    const btn = document.getElementById('unlockBtn');
-    btn.classList.add('show');
-    launchConfetti();
-    if (typeof gsap !== 'undefined') {
-      gsap.from('#unlockBtn', { scale:0.8, opacity:0, duration:0.6, ease:'back.out(2)' });
-    }
-  }
-}
-
-/* ── CONFETTI ── */
 function launchConfetti() {
   const colors = ['#8A2BE2','#FF2D2D','#FFD700','#4ade80','#38bdf8','#e879f9'];
   for (let i = 0; i < 80; i++) {
@@ -973,12 +1170,6 @@ function launchConfetti() {
     }, i * 30);
   }
 }
-
-/* ── PARALLAX HERO IMAGE ── */
-window.addEventListener('scroll', () => {
-  const img = document.querySelector('.hero-bg-img');
-  if (img) img.style.transform = `translateY(${window.scrollY * 0.3}px)`;
-});
 </script>
 </body>
 </html>
